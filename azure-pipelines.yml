@@ -1,0 +1,17 @@
+# azure-pipelines-simple.yml
+trigger:
+- main
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+steps:
+- checkout: self
+
+- script: |
+    echo "🔍 Verificando archivos..."
+    ls -la
+    echo "📦 Construyendo imagen Docker..."
+    docker build -t mi-app:$(Build.BuildId) .
+    echo "✅ ¡Build exitoso!"
+  displayName: 'Build and Verify'
