@@ -1,17 +1,66 @@
-# azure-pipelines-simple.yml
+# azure-pipelines.yml
 trigger:
 - main
 
 pool:
   vmImage: 'ubuntu-latest'
 
+variables:
+  imageName: 'tu-app-python'
+
 steps:
 - checkout: self
 
+# Paso 1: Build de la imagen Docker
+- task: Docker@2
+  displayName: 'Build Docker Image'
+  inputs:
+    command: 'build'
+    dockerfile: 'Dockerfile'
+    tags: |
+      $(imageName):latest
+      $(imageName):$(Build.BuildId)
+    arguments: '--no-cache'
+
+# Paso 2: Verificar que el contenedor puede iniciar (AJUSTADO)
 - script: |
-    echo "🔍 Verificando archivos..."
-    ls -la
-    echo "📦 Construyendo imagen Docker..."
-    docker build -t mi-app:$(Build.BuildId) .
-    echo "✅ ¡Build exitoso!"
-  displayName: 'Build and Verify'
+    echo "Probando que el contenedor inicia correctamente..."
+    docker run -d --name test-container --rm $(imageName):$(Build.BuildId)
+    sleep 10
+    docker ps | grep test-container
+    docker stop test-container
+    echo "✅ Contenedor iniciado y detenido correctamente"
+  displayName: 'Test Container Startup'
+  condition: succeeded()
+
+# Paso 3: Docker Compose (OPCIONAL - comenta si no lo necesitas)
+- script: |
+    echo "Levantando servicios con docker-compose..."
+    docker-compose up -d
+    sleep 15
+    docker-compose ps
+    docker-compose down
+    echo "✅ Docker Compose probado correctamente"
+  displayName: 'Test with Docker Compose'
+  condition: succeeded()
+
+# Paso 4: Tests (OPCIONAL - comenta si no tienes tests)
+- script: |
+    echo "Si tienes tests, los ejecutarías aquí"
+    # Ejemplo para Python:
+    # docker run --rm $(imageName):$(Build.BuildId) python -m pytest
+  displayName: 'Run Tests'
+  condition: always()
+
+# Paso 5: Resultado final
+- script: |
+    echo "🎉 ¡Pipeline ejecutado exitosamente!"
+    echo "📦 Build ID: $(Build.BuildId)"
+    echo "🐳 Imagen: $(imageName):$(Build.BuildId)"
+    echo "✅ Dockerfile encontrado y construido correctamente"
+  displayName: 'Pipeline Success'
+- task: PublishBuildArtifacts@1
+  inputs:
+    PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+    ArtifactName: 'drop'
+    publishLocation: 'Container'
