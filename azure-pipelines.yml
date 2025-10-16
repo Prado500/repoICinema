@@ -11,7 +11,7 @@ variables:
 steps:
 - checkout: self
 
-# Paso 1: Build de la imagen Docker
+# Paso 1: Build de la imagen Docker Prueba
 - task: Docker@2
   displayName: 'Build Docker Image'
   inputs:
