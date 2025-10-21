@@ -1,66 +1,105 @@
-# azure-pipelines.yml
+# azure-pipelines-DIAGNOSTICO.yml
 trigger:
 - main
 
 pool:
   vmImage: 'ubuntu-latest'
 
-variables:
-  imageName: 'tu-app-python'
-
 steps:
 - checkout: self
 
-# Paso 1: Build de la imagen Docker Prueba
-- task: Docker@2
-  displayName: 'Build Docker Image'
-  inputs:
-    command: 'build'
-    dockerfile: 'Dockerfile'
-    tags: |
-      $(imageName):latest
-      $(imageName):$(Build.BuildId)
-    arguments: '--no-cache'
-
-# Paso 2: Verificar que el contenedor puede iniciar (AJUSTADO)
+# DIAGNÓSTICO 1: Ver estructura del repositorio
 - script: |
-    echo "Probando que el contenedor inicia correctamente..."
-    docker run -d --name test-container --rm $(imageName):$(Build.BuildId)
-    sleep 10
-    docker ps | grep test-container
-    docker stop test-container
-    echo "✅ Contenedor iniciado y detenido correctamente"
-  displayName: 'Test Container Startup'
-  condition: succeeded()
+    echo "=== DIAGNÓSTICO INICIAL ==="
+    echo "📁 Directorio actual: $(pwd)"
+    echo ""
+    echo "📂 Estructura COMPLETA del repositorio:"
+    find . -type f -name "*" | head -30
+    echo ""
+    echo "📄 Archivos en raíz:"
+    ls -la
+    echo ""
+    echo "📄 Archivos en carpeta app:"
+    ls -la app/
+    echo ""
+    echo "=== FIN DIAGNÓSTICO INICIAL ==="
+  displayName: '1. Diagnóstico Estructura Repositorio'
 
-# Paso 3: Docker Compose (OPCIONAL - comenta si no lo necesitas)
+# DIAGNÓSTICO 2: Verificar update_version.py
 - script: |
-    echo "Levantando servicios con docker-compose..."
-    docker-compose up -d
-    sleep 15
-    docker-compose ps
-    docker-compose down
-    echo "✅ Docker Compose probado correctamente"
-  displayName: 'Test with Docker Compose'
-  condition: succeeded()
+    echo "=== VERIFICANDO update_version.py ==="
+    echo "¿Existe update_version.py?"
+    ls -la update_version.py || echo "❌ update_version.py NO EXISTE"
+    echo ""
+    echo "Contenido de update_version.py:"
+    cat update_version.py || echo "❌ No se puede leer update_version.py"
+    echo "=== FIN VERIFICACIÓN ==="
+  displayName: '2. Verificar update_version.py'
 
-# Paso 4: Tests (OPCIONAL - comenta si no tienes tests)
+# DIAGNÓSTICO 3: Verificar app/main.py
 - script: |
-    echo "Si tienes tests, los ejecutarías aquí"
-    # Ejemplo para Python:
-    # docker run --rm $(imageName):$(Build.BuildId) python -m pytest
-  displayName: 'Run Tests'
-  condition: always()
+    echo "=== VERIFICANDO app/main.py ==="
+    echo "¿Existe app/main.py?"
+    ls -la app/main.py || echo "❌ app/main.py NO EXISTE"
+    echo ""
+    echo "Últimas 10 líneas de app/main.py:"
+    tail -10 app/main.py || echo "❌ No se puede leer app/main.py"
+    echo "=== FIN VERIFICACIÓN ==="
+  displayName: '3. Verificar app/main.py'
 
-# Paso 5: Resultado final
+# DIAGNÓSTICO 4: Ejecutar update_version.py
 - script: |
-    echo "🎉 ¡Pipeline ejecutado exitosamente!"
-    echo "📦 Build ID: $(Build.BuildId)"
-    echo "🐳 Imagen: $(imageName):$(Build.BuildId)"
-    echo "✅ Dockerfile encontrado y construido correctamente"
-  displayName: 'Pipeline Success'
+    echo "=== EJECUTANDO update_version.py ==="
+    python update_version.py $(Build.BuildId) || echo "❌ Error ejecutando update_version.py"
+    echo "=== FIN EJECUCIÓN ==="
+  displayName: '4. Ejecutar update_version.py'
+
+# DIAGNÓSTICO 5: Verificar rutas de Azure DevOps
+- script: |
+    echo "=== RUTAS AZURE DEVOPS ==="
+    echo "Build.SourcesDirectory: $(Build.SourcesDirectory)"
+    echo "Build.ArtifactStagingDirectory: $(Build.ArtifactStagingDirectory)"
+    echo "Build.BinariesDirectory: $(Build.BinariesDirectory)"
+    echo "=== FIN RUTAS ==="
+  displayName: '5. Verificar Rutas'
+
+# DIAGNÓSTICO 6: Copiar archivos MANUALMENTE
+- script: |
+    echo "=== COPIA MANUAL ==="
+    echo "Contenido ANTES de copiar:"
+    ls -la $(Build.ArtifactStagingDirectory) || echo "Directorio vacío o no existe"
+    echo ""
+    echo "Copiando archivos manualmente..."
+    cp -r * $(Build.ArtifactStagingDirectory)/ || echo "Error en copia manual"
+    echo ""
+    echo "Contenido DESPUÉS de copiar:"
+    ls -la $(Build.ArtifactStagingDirectory)
+    echo "=== FIN COPIA MANUAL ==="
+  displayName: '6. Copia Manual de Archivos'
+
+# DIAGNÓSTICO 7: Verificar que los archivos están en staging
+- script: |
+    echo "=== VERIFICACIÓN STAGING ==="
+    echo "📂 Contenido FINAL de ArtifactStagingDirectory:"
+    find "$(Build.ArtifactStagingDirectory)" -type f | head -20
+    echo ""
+    echo "📊 Tamaño del directorio:"
+    du -sh "$(Build.ArtifactStagingDirectory)"
+    echo "=== FIN VERIFICACIÓN ==="
+  displayName: '7. Verificar Staging Directory'
+
+# DIAGNÓSTICO 8: Intentar publicar artifact
 - task: PublishBuildArtifacts@1
+  displayName: '8. Publicar Artifact (Prueba)'
   inputs:
     PathtoPublish: '$(Build.ArtifactStagingDirectory)'
-    ArtifactName: 'drop'
+    ArtifactName: 'diagnostico'
     publishLocation: 'Container'
+
+# DIAGNÓSTICO 9: Resultado final
+- script: |
+    echo "=== RESULTADO DIAGNÓSTICO ==="
+    echo "🎯 Si ves esto, el pipeline al menos ejecutó los scripts"
+    echo "📋 Revisa los pasos anteriores para ver dónde está el problema"
+    echo "=== FIN DIAGNÓSTICO ==="
+  displayName: '9. Resultado Final'
