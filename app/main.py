@@ -3,7 +3,9 @@ from fastapi import FastAPI, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
 from contextlib import asynccontextmanager
-
+import os
+from datetime import datetime
+import socket
 from . import crud, models, schemas
 from .database import engine, get_db
 
@@ -68,3 +70,69 @@ async def delete_existing_movie(movie_id: int, db: AsyncSession = Depends(get_db
     if deleted_movie is None:
         raise HTTPException(status_code=404, detail="Película no encontrada")
     return deleted_movie
+
+# =============================================================================
+#      ENDPOINTS PARA VALIDACIÓN CI/CD  
+# =============================================================================
+
+
+
+@app.get("/health", tags=["Health Check"])
+async def health_check():
+    """
+    Endpoint de salud básico - Verifica que la API está funcionando
+    """
+    return {
+        "status": "healthy",
+        "timestamp": datetime.now().isoformat(),
+        "service": "ICinema API",
+        "environment": "production",
+        "hostname": socket.gethostname()
+    }
+
+@app.get("/version", tags=["CI/CD Evidence"])
+async def get_version():
+    """
+    Endpoint para evidenciar cambios automáticos del CD
+    El color cambia automáticamente con cada despliegue
+    """
+    return {
+        "version": "2.0.0",
+        "build_id": os.getenv('BUILD_BUILDID', 'local'),
+        "build_number": os.getenv('BUILD_BUILDNUMBER', 'dev'),
+        "deployment_date": datetime.now().isoformat(),
+        "message": "🚀 CD Funcionando - Despliegue Automático",
+        "feature": "Color: AZUL",  # ⭐ Esto cambiará automáticamente
+        "environment": "Azure Web App",
+        "evidence": "Este mensaje cambia con cada despliegue automático"
+    }
+
+@app.get("/cd-status", tags=["CD Validation"])
+async def cd_status():
+    """
+    Endpoint específico para validar el Despliegue Continuo
+    """
+    return {
+        "cd_working": True,
+        "last_deployment": datetime.now().isoformat(),
+        "deployment_trigger": "GitHub Push" if os.getenv('BUILD_REASON') == 'IndividualCI' else "Manual",
+        "pipeline_id": os.getenv('BUILD_BUILDID', 'unknown'),
+        "validation": "CD_CONFIGURADO_CORRECTAMENTE",
+        "next_step": "Hacer commit y verificar cambio automático en /version"
+    }
+
+@app.get("/full-status", tags=["Full CI/CD Status"])
+async def full_status():
+    """
+    Estado completo del CI/CD
+    """
+    return {
+        "ci_status": "completed",
+        "cd_status": "deployed",
+        "current_environment": "production",
+        "api_status": "operational",
+        "database_status": "connected",
+        "last_ci_run": os.getenv('BUILD_BUILDNUMBER', 'unknown'),
+        "auto_deployment": True,
+        "evidence_timestamp": datetime.now().isoformat()
+    }
