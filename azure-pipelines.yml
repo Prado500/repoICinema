@@ -68,7 +68,7 @@ stages:
     - task: AzureWebApp@1
       displayName: 'Deploy to Azure Web App'
       inputs:
-        azureSubscription: 'Azure for Students'  # ⚠️ VERIFICA que este es el nombre EXACTO
+        azureSubscription: 'Azure-for-Students'  # ⚠️ VERIFICA que este es el nombre EXACTO
         appName: '$(webAppName)'
         package: '$(Pipeline.Workspace)/drop/app.zip'
     
