@@ -6,57 +6,76 @@ pool:
   vmImage: 'ubuntu-latest'
 
 variables:
-  webAppName: 'icinema-app-demo'
+  webAppName: 'icinema-api-demo'
 
-steps:
-- checkout: self
+stages:
+- stage: Build
+  displayName: 'Build Stage - CI'
+  jobs:
+  - job: Build
+    displayName: 'Build Application'
+    steps:
+    - checkout: self
+    
+    # PASO 1: Actualizar versión para evidencia
+    - script: |
+        echo "🔄 Actualizando versión para evidenciar cambios..."
+        python update_version.py $(Build.BuildId)
+      displayName: 'Update Version for Evidence'
+    
+    # PASO 2: Instalar dependencias
+    - script: |
+        echo "📦 Instalando dependencias Python..."
+        pip install -r requirements.txt
+      displayName: 'Install Dependencies'
+    
+    # PASO 3: Crear ZIP directamente
+    - script: |
+        echo "🗜️ Creando ZIP de despliegue..."
+        zip -r app.zip . -x "*.git*" "*.github*" "*.venv*"
+        echo "✅ ZIP creado: app.zip"
+        ls -la app.zip
+      displayName: 'Create ZIP Package'
+    
+    # PASO 4: Publicar artifact (ESTA VEZ SÍ FUNCIONARÁ)
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish Build Artifact'
+      inputs:
+        PathtoPublish: '$(System.DefaultWorkingDirectory)/app.zip'
+        ArtifactName: 'drop'
+        publishLocation: 'Container'
+    
+    - script: |
+        echo "🎉 CI COMPLETADO EXITOSAMENTE"
+        echo "📦 Build ID: $(Build.BuildId)"
+        echo "📁 Artifact: app.zip"
+        echo "✅ Listo para despliegue automático"
+      displayName: 'CI Success'
 
-# PASO 1: Actualizar versión para evidencia
-- script: |
-    echo "🔄 Modificando versión para evidenciar cambios CI/CD..."
-    python update_version.py $(Build.BuildId)
-  displayName: 'Update Version for Evidence'
-
-# PASO 2: Instalar dependencias
-- script: |
-    echo "📦 Instalando dependencias Python..."
-    pip install -r requirements.txt
-  displayName: 'Install Python Dependencies'
-
-# PASO 3: Copiar archivos AL DIRECTORIO DE ARTIFACTS
-- task: CopyFiles@2
-  displayName: 'Copy Files to Staging'
-  inputs:
-    Contents: |
-      **/*
-      !.git/**
-      !.github/**
-      !.venv/**
-    TargetFolder: '$(Build.ArtifactStagingDirectory)'
-    CleanTargetFolder: true
-
-# PASO 4: Crear ZIP (esto es lo que Azure Web App necesita)
-- task: ArchiveFiles@2
-  displayName: 'Create ZIP Package'
-  inputs:
-    rootFolderOrFile: '$(Build.ArtifactStagingDirectory)'
-    includeRootFolder: false
-    archiveType: 'zip'
-    archiveFile: '$(Build.ArtifactStagingDirectory)/app.zip'
-    replaceExistingArchive: true
-
-# PASO 5: Publicar artifact (ESTE ES EL QUE USARÁ EL CD)
-- task: PublishBuildArtifacts@1
-  displayName: 'Publish Build Artifact'
-  inputs:
-    PathtoPublish: '$(Build.ArtifactStagingDirectory)/app.zip'  # ⚠️ PUBLICAR EL ZIP, NO LA CARPETA
-    ArtifactName: 'drop'
-    publishLocation: 'Container'
-
-# PASO 6: Evidencia
-- script: |
-    echo "🎉 CI COMPLETADO EXITOSAMENTE"
-    echo "📦 Build ID: $(Build.BuildId)"
-    echo "📁 Artifact: app.zip"
-    echo "✅ Listo para despliegue en CD"
-  displayName: 'CI Success'
+- stage: Deploy
+  displayName: 'Deploy Stage - CD'
+  dependsOn: Build
+  condition: succeeded()
+  jobs:
+  - job: Deploy
+    displayName: 'Deploy to Azure'
+    steps:
+    # PASO 1: Descargar artifact
+    - download: current
+      artifact: drop
+    
+    # PASO 2: Desplegar en Azure Web App
+    - task: AzureWebApp@1
+      displayName: 'Deploy to Azure Web App'
+      inputs:
+        azureSubscription: 'Azure for Students'  # ⚠️ VERIFICA que este es el nombre EXACTO
+        appName: '$(webAppName)'
+        package: '$(Pipeline.Workspace)/drop/app.zip'
+    
+    # PASO 3: Evidencia de éxito
+    - script: |
+        echo "🎉 DESPLIEGUE AUTOMÁTICO EXITOSO"
+        echo "🌐 URL: https://$(webAppName).azurewebsites.net"
+        echo "📦 Build ID: $(Build.BuildId)"
+        echo "✅ CD Funcionando - Cambios desplegados automáticamente"
+      displayName: 'Deployment Success Evidence'
