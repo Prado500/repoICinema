@@ -1,21 +1,23 @@
-# Dockerfile
-
-# 1. Usar una imagen base oficial de Python
+# Dockerfile - VERSIÓN PRODUCCIÓN
 FROM python:3.11-slim
 
-# 2. Establecer el directorio de trabajo dentro del contenedor
-WORKDIR /code
+WORKDIR /app
 
-# 3. Instalar dependencias para mantener la imagen ligera
+# Instalar dependencias del sistema
+RUN apt-get update && apt-get install -y \
+    gcc \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copiar requirements primero (mejor caching)
 COPY requirements.txt .
-RUN pip install uv && uv pip install --system --no-cache -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
-# 4. Copiar el código de la aplicación
-COPY ./app /code/app
+# Copiar aplicación
+COPY ./app /app
 
-# 5. Exponer el puerto en el que correrá la aplicación
+# Puerto y salud
 EXPOSE 8000
+HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
 
-# 6. Comando para iniciar la aplicación cuando el contenedor se ejecute
-# Se usa --host 0.0.0.0 para que la API sea accesible desde fuera del contenedor
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
